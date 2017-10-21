@@ -1,0 +1,21 @@
+---
+title: "Reference"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Reference
+
+https://github.com/mvanlunenburg/Peer-graded-assingment-Practical-machine-learning/blob/master/Peergraded_Assignment_Prediction_Assignment_Writeup_files/Peergraded_Assignment_Prediction_Assignment_Writeup.pdf
+
+
+https://github.com/xabiko/coursera_practicalML
+
+https://github.com/NikDobri/practicalML_project/blob/gh-pages/PracticalML.md
+
+https://github.com/Rui-Lian/practicalmachinelearning/blob/gh-pages/index.Rmd
+
+https://terasm.github.io/practicalmachinelearning/index.html
