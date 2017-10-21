@@ -1,0 +1,148 @@
+---
+title: "DDS_MachLearn_w4"
+author: "Jie Yang"
+date: "October 16, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+#Load library required
+```{r warnings=FALSE}
+library(ggplot2)
+library(caret)
+library(dplyr)
+```
+#Load the training and testing data
+```{r}
+setwd("C:/Users/JieYang/Documents/Cousera/DataScience")
+fileURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(fileURL, destfile="./training.csv")
+train<-read.csv(paste(getwd(),"training.csv", sep="/"), stringsAsFactors = FALSE, na.strings = c ("","NA"))
+
+fileURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(fileURL, destfile="./testing.csv")
+test<-read.csv(paste(getwd(),"testing.csv", sep="/"), stringsAsFactors = FALSE,na.strings = c ("","NA"))
+#na.strings = c ("","NA") is added as I saw a lot of blankets
+```
+
+*pay attention `na.strings=c("", NA)` is used to replace the empty characters with 'NA'*
+
+A simple exploratory data step will show quite a few parameters are with 'NA', they can be choosen and filter out as they're not contributing to the prediction and training.
+
+```{r}
+NA_ratio<-colMeans(is.na(train))
+#set the ratio to be 0.5 (50% are NA)
+length(NA_ratio[NA_ratio>0.5])
+#output shows there are 67 columns are NA> 50%
+NA_train<-names(train)[NA_ratio>0.5]
+
+NA_ratio2<-colMeans(is.na(test))
+length(NA_ratio2[NA_ratio2>0.5])
+NA_test<-names(test)[NA_ratio>0.5]
+
+#common names that have missing variables dominate
+common_NA<-intersect(NA_test, NA_train)
+#difference in train
+setdiff(names(train), common_NA)
+#difference in test
+setdiff(names(test), common_NA)
+
+#remove time stamps and window as they are not good features for predictions.
+vec_rm_train<-grepl("^X|timestamp|window|user_name", names(train))
+vec_rm_test<-grepl("^X|timestamp|window|user_name", names(test))
+train_clean <- train%>% select(-one_of(common_NA)) %>%
+    select(-which(vec_rm_train %in% 1))
+test_clean <- test%>% select(-one_of(common_NA)) %>%
+    select(-which(vec_rm_test %in% 1))
+```
+
+There are further unnecessary columns that can be removed. The column X contains the row numbers. The column user_name contains the name of the user. Of course, these variables cannot predictors for the type of exercise.
+
+Furthermore, the three columns containing time stamps (`raw_timestamp_part_1`, `raw_timestamp_part_2`, and `cvtd_timestamp`) will not be used.
+
+The factors `new_window` and `num_window` are not related to sensor data. They will be removed too.
+
+In total, there are 53 features left. 
+
+#Training and slice the dataset for training and cross-validations.
+
+Here, I use the cross-validation (k=2 and k=10) when applying the training, the method used is the "randome forest".
+
+```{r}
+set.seed(100) #set the random number to be reproducible.
+#Coss-validation 75% from training is for trainning, 25% is cross-vadlidation
+inTraining <- createDataPartition(train_clean$classe, p = 0.75, list = FALSE)
+training <- train_clean[inTraining, ]
+crossval <- train_clean[-inTraining, ]
+Modfit2<-train(classe~., method="rf", data=training)
+
+#1st: Using random forest
+tr_ctl <- trainControl(method = "cv", number = 2)
+Modfit1<-train(classe~., method="rf", data=training, trControl=tr_ctl, prox=TRUE)
+
+tr_ctl <- trainControl(method = "cv", number = 10)
+Modfit2<-train(classe~., method="rf", data=training, trControl=tr_ctl, prox=TRUE)
+#cross validation
+
+
+
+```
+
+The accuracy for k=2, training is high, with 98%. 
+
+```{r echo=FALSE}
+Modfit1
+
+```
+
+The accuracy for k=10, training is high, with 99%. 
+
+```{r echo=FALSE}
+Modfit2
+
+```
+
+The second part has higher accuracy. Once can check the accuracy on the validation dataset. `crossval`
+Overall, the accuracy is consistently high 99%. Out of sample error is 0.00734, pretty low. 
+```{r}
+cross_predict <- predict(Modfit2, crossval)
+confusionMatrix(crossval$classe, cross_predict)
+accuracy <- postResample(cross_predict, as.factor(crossval$classe))
+accuracy
+OOSE <- 1 - as.numeric(confusionMatrix(crossval$classe, cross_predict)$overall[1])
+OOSE
+```
+
+As reference, for `Modfit1`, the accuracy and OOSE is shown below:
+```{r echo=FALSE}
+cross_predict <- predict(Modfit1, crossval)
+confusionMatrix(crossval$classe, cross_predict)
+accuracy <- postResample(cross_predict, as.factor(crossval$classe))
+accuracy
+OOSE <- 1 - as.numeric(confusionMatrix(crossval$classe, cross_predict)$overall[1])
+OOSE
+```
+
+* Inference for the test sample
+
+Now I use the Modfit2 to predict the test sample.
+```{r}
+#remove the problem_id column, as it's not related to prediction
+test_clean_sub<-subset(test_clean, select=-c(problem_id))
+test_clean$predict<-predict_test<-predict(Modfit2, test_clean_sub)
+test_clean[,c("problem_id","predict")]
+```
+
+#Reference
+
+* https://github.com/flyingdisc/practical-machine-learning/blob/master/project-report.Rmd
+
+* https://github.com/blewy/Practical-Machine-Learning-project/blob/master/Practical%20ML%20Project.Rmd
+
+* https://github.com/whzhyh/Coursera-Practical-Machine-Learning-Project/blob/master/report.md
+
+* https://github.com/alex23lemm/Practical-Machine-Learning-Course-Project/blob/master/analysis.md
+
